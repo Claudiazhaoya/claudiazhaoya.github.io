@@ -39,6 +39,23 @@
     .tooltip-date, .tooltip-likes {
         font-weight: bold;
     }
+
+    input[type=range] {
+    width: 100%;
+    max-width: 30%;
+    margin-left: 0;
+    }
+
+    /* style datalist */
+    input[type=range] + datalist {
+        display: block;
+        margin-top: -4px;
+    }
+    input[type=range] + datalist option {
+        display: inline-block;
+        width: 200;
+        text-align: center;
+    }
   </style>
 
 <div class="container">
@@ -48,13 +65,17 @@
     <!-- <div id="slider"></div> -->
     <input type="range" id="slider" class="slider" name="slider" min="2020" max="2022" value="2020" list="steplist">
     <datalist id="steplist">
-        <option>2020</option>
-        <option>2021</option>
-        <option>2022</option>
+      <option style="margin-left: 0px;">2020</option>
+      <option style="margin-left: 160px;">2021</option>
+      <option style="margin-left: 160px;">2022</option>
     </datalist>
-    <h2>Overview</h2>
+    <!-- <h2>Overview</h2> -->
     <!-- Create a div where the graph will take place -->
     <table>
+      <tr>
+        <th>Overview</th>
+        <th>Morality Rate</th>
+      </tr>
       <tr>
           <td><div id="chart1_div" style="width: 500px; height: 300px;"></div></td>
           <td><div id="chart2_div" style="width: 300px; height: 300px;"></div></td>
@@ -404,9 +425,9 @@
           //can also add a curve type, e.g. curve: d3.curveStep
           points: [[100, 14],[190, 52]]
         },
-        x: 185,
-        y: 280,
-        dy: 50,
+        x: 173,
+        y: 240,
+        dy: -50,
         dx: 50
       },
       {
@@ -420,7 +441,7 @@
           //can also add a curve type, e.g. curve: d3.curveStep
           points: [[100, 14],[190, 52]]
         },
-        x: 70,
+        x: 95,
         y: 410,
         dy: -50,
         dx: -50

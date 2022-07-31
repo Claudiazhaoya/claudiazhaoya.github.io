@@ -6,6 +6,8 @@
 />
 <!-- Load d3.js -->
 <script src="https://d3js.org/d3.v4.js"></script>
+
+<!-- Load d3-annotation -->
 <script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
 
 <style> /* set the CSS */
@@ -16,6 +18,9 @@
     stroke-width: 2px;
   }
 
+  .listening-rect {
+    fill: transparent;
+  }
   </style>
 
 <div class="container">
@@ -29,8 +34,6 @@
         <option>2021</option>
         <option>2022</option>
     </datalist>
-
-    
     <h2>Overview</h2>
     <!-- Create a div where the graph will take place -->
     <table>
@@ -40,27 +43,6 @@
       </tr>
 </div>
 <script>
-  /*----------- annotation ----------*/
-  const annotations = [
-  {
-    note: {
-      label: "Here is the annotation label",
-      title: "Annotation title"
-    },
-    x: 100,
-    y: 100,
-    dy: 100,
-    dx: 100
-  }
-]
-
-  // Add annotation to the chart
-  const makeAnnotations = d3.annotation()
-    .annotations(annotations)
-  d3.select("#chart1_div")
-    .append("g")
-    .call(makeAnnotations)
-
   
   /*--------- global variable -----------*/
   var parseDate = d3.timeParse("%Y-%m-%d");
@@ -81,23 +63,23 @@
 
   /*------------ Line Chart --------------*/
   var margin = {top: 10, right: 30, bottom: 30, left: 60},
-      width = 460 - margin.left - margin.right,
+      width = 500 - margin.left - margin.right,
       height = 200 - margin.top - margin.bottom;
   // append the svg object to the body of the page
   var svg = d3.select("#chart1_div")
     .append("svg")
       .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
+      .attr("height", 500)
     .append("g")
       .attr("transform",
             "translate(" + margin.left + "," + margin.top + ")");
-
 
   /*------------ Second Line Chart --------------*/
 
   var margin_1 = {top: 10, right: 30, bottom: 30, left: 200},
   width_1 = 800, 
   height_1 = 500;
+  var tooltip = { width: 100, height: 100, x: 10, y: -30 };
 
 
   var svg_1 = d3.select("#chart2_div")
@@ -174,16 +156,21 @@
         draw_morality(groupedData, 2022, year)
        
       /*------------ END Line Chart --------------*/
-
+        
+        toolTip(groupedData)
       })
+    }
+
+    function toolTip(groupedData) {
+    
+  
     }
 
     function draw_cases(groupedData,year,targetYear) {
       var newGroupedData = groupedData.filter(function(d) { return d.key.getFullYear() == year; })
 
-      console.log(newGroupedData);
       var line = d3.line()
-      .x(function(d) { console.log(d.key); return x_scale(d.key); }) // set the x values for the line generator
+      .x(function(d) { return x_scale(d.key); }) // set the x values for the line generator
       .y(function(d) { return y_scale(d.value.total); }) // set the y values for the line generator 
       .curve(d3.curveMonotoneX) // apply smoothing to the line
 
@@ -218,6 +205,53 @@
           .style("stroke",function(){if(year == targetYear) return "red"; })
           .attr("d", line); 
     }
+
+    /*----------- annotation ----------*/
+   // Features of the annotation
+   const annotations = [
+      {
+        note: {
+          label: "The World Health Organization activates its incident management system across the three levels of WHO (country office, regional office, and headquarters).",
+          title: "January 2, 2020",
+          wrap: 300
+        },
+        connector: {
+          end: "dot",
+          //can also add a curve type, e.g. curve: d3.curveStep
+          points: [[100, 14],[190, 52]]
+        },
+        x: 10,
+        y: 160,
+        dy: 50,
+        dx: 50
+      },
+      {
+        note: {
+          label: "U.S.COVID-19 death toll surpasses 500,000.",
+          title: "February 21, 2021",
+          wrap: 130
+        },
+        connector: {
+          end: "dot",
+          //can also add a curve type, e.g. curve: d3.curveStep
+          points: [[100, 14],[190, 52]]
+        },
+        x: 180,
+        y: 97,
+        dy: -50,
+        dx: -50
+      },
+    ]
+    const fontSize = d3.scaleLinear().range([10, 20]).clamp(true);
+    let ratio = window.innerWidth/5000;
+    // Add annotation to the chart
+    const makeAnnotations = d3.annotation()
+      .annotations(annotations)
+  
+    svg.append("g")
+      .style('font-size', fontSize(ratio))
+      .call(makeAnnotations);
+    
     load(2020);
                    
     </script>

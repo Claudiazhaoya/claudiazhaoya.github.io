@@ -56,7 +56,7 @@
     <!-- Create a div where the graph will take place -->
     <table>
       <tr>
-          <td><div id="chart1_div" style="width: 300px; height: 300px;"></div></td>
+          <td><div id="chart1_div" style="width: 500px; height: 300px;"></div></td>
           <td><div id="chart2_div" style="width: 300px; height: 300px;"></div></td>
       </tr>
 </div>
@@ -86,7 +86,7 @@
   // append the svg object to the body of the page
   var svg = d3.select("#chart1_div")
     .append("svg")
-      .attr("width", width + margin.left + margin.right)
+      .attr("width", 700)
       .attr("height", 500)
     .append("g")
       .attr("transform",
@@ -95,7 +95,7 @@
   /*------------ Second Line Chart --------------*/
 
   var margin_1 = {top: 10, right: 30, bottom: 30, left: 200},
-  width_1 = 800, 
+  width_1 = 700, 
   height_1 = 500;
   var tooltip = { width: 100, height: 100, x: 10, y: -30 };
 
@@ -127,6 +127,9 @@
         .ticks(5)
         .tickFormat(d3.format(".2s")));
 
+    var x_scale_1 = d3.scaleTime()
+        .domain([0, 11])
+        .range([0,width_1]);
     // add Y Axis
     var y_scale_1 = d3.scaleLinear()
             .domain([0, 0.1])
@@ -149,17 +152,6 @@
           d.date = newD;
         });
        
-        // var groupedData = d3.nest()
-        //     .key(function(d) {return d.date.getFullYear() + "-" + (d.date.getMonth() + 1); })
-        //     .rollup(function(v) { return {
-        //         deaths: d3.sum(v, function(d) {return d.deaths}),
-        //         total: d3.sum(v, function(d) { return d.cases; })
-        //     }; })
-        //     .entries(data);
-
-        // groupedData.forEach(function(d) {
-        //   d.key = parseMonth(d.key);
-        // });
         var line = d3.line()
         .x(function(d) {return x_scale(d.date); }) // set the x values for the line generator
         .y(function(d) { return y_scale(d.cases); }) // set the y values for the line generator 
@@ -235,22 +227,11 @@
           d.date = newD;
         });
 
-        // groupedData = d3.nest()
-        //     .key(function(d) {return d.date.getFullYear() + "-" + (d.date.getMonth() + 1); })
-        //     .rollup(function(v) { return {
-        //         deaths: d3.sum(v, function(d) {return d.deaths}),
-        //         total: d3.sum(v, function(d) { return d.cases; })
-        //     }; })
-        //     .entries(data);
 
-        // data.forEach(function(d) {
-        //   d.key = parseMonth(d.key);
-        // });
         draw_cases(data, 2020, year)
         draw_cases(data, 2021, year)
         draw_cases(data, 2022, year)
         /*------------ END Line Chart --------------*/ 
-        //TODO here
         //Draw chart2
         draw_morality(data, 2020, year)
         draw_morality(data, 2021, year)
@@ -281,12 +262,7 @@
       var newData = groupedData.filter(function(d) { return d.date.getFullYear() == year; })
       
       var newGData = newData.filter(function(d) { return d.date.getDate() == 30; })
-// console.log("year"+year+"-"+newGData)
-// console.log(newGData)
-      // Add X axis
-      var x_scale_1 = d3.scaleTime()
-        .domain([0, 11])
-        .range([0,width_1]);
+    
       svg_1.append("g")
           .attr("transform", "translate(0," + height_1 + ")")
           .call(d3.axisBottom(x_scale_1)
@@ -303,10 +279,18 @@
           .attr("class", "line")
           .style("stroke",function(){if(year == targetYear) return "red"; })
           .attr("d", line); 
+    
+       drawFocus(groupedData, targetYear);
+    }
+
+    function drawFocus(groupedData, targetYear) {
+      var targetYData = groupedData.filter(function(d) { return d.date.getFullYear() == targetYear; })
+      
+      var newTData = targetYData.filter(function(d) { return d.date.getDate() == 30; })
 
       var bisectDate = d3.bisector(function(d) {return d.date.getMonth(); }).left;
       var dateFormatter = d3.timeFormat("%m/%d/%y");
-      var formatValue = d3.format(",");
+      var formatValue = d3.format(",%");
 
       var focus = svg_1.append("g")
         .attr("class", "focus")
@@ -341,21 +325,21 @@
 
         svg_1.append("rect")
             .attr("class", "overlay")
-            .attr("width", width)
-            .attr("height", height)
+            .attr("width", width_1)
+            .attr("height", height_1)
             .on("mouseover", function() { focus.style("display", null); })
             .on("mouseout", function() { focus.style("display", "none"); })
             .on("mousemove", mousemove);
 
         function mousemove() {
             var x0 = x_scale_1.invert(d3.mouse(this)[0]),
-                i = bisectDate(newGData, x0, 1),
-                d0 = newGData[i - 1],
-                d1 = newGData[i];
+                i = bisectDate(newTData, x0, 1),
+                d0 = newTData[i - 1],
+                d1 = newTData[i];
                 d = x0 - d0.date > d1.date - x0 ? d1 : d0;
-            console.log(d.date.getMonth())
+    
             focus.attr("transform", "translate(" + x_scale_1(d.date.getMonth()) + "," + y_scale_1(d.deaths / d.cases) + ")");
-            focus.select(".tooltip-date").text(dateFormatter(d.date.getMonth()));
+            focus.select(".tooltip-date").text(dateFormatter(d.date));
             focus.select(".tooltip-likes").text(formatValue(d.deaths / d.cases));
         }
     }

@@ -6,6 +6,8 @@
 />
 <!-- Load d3.js -->
 <script src="https://d3js.org/d3.v4.js"></script>
+<script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
+
 <style> /* set the CSS */
 
   .line {
@@ -13,47 +15,189 @@
     stroke: steelblue;
     stroke-width: 2px;
   }
-  
+
+  .line_2021 {
+    fill: none;
+    stroke: green;
+    stroke-width: 2px;
+  }
+
+  .line_2022 {
+    fill: none;
+    stroke: red;
+    stroke-width: 2px;
+  }
+
+  .ticks {
+      font-size: 10px;
+    }
+
+    .track,
+    .track-inset,
+    .track-overlay {
+      stroke-linecap: round;
+    }
+
+    .track {
+      stroke: #000;
+      stroke-opacity: 0.3;
+      stroke-width: 10px;
+    }
+
+    .track-inset {
+      stroke: #ddd;
+      stroke-width: 8px;
+    }
+
+    .track-overlay {
+      pointer-events: stroke;
+      stroke-width: 50px;
+      stroke: transparent;
+      cursor: crosshair;
+    }
+
+    .handle {
+      fill: #fff;
+      stroke: #000;
+      stroke-opacity: 0.5;
+      stroke-width: 1.2
+    }
   </style>
 
 <div class="container">
     <h1>
         Covid-19 Trend in the United States
     </h1>
-    <h2>Overview</h2>
-</div>
+    <!-- <div id="slider"></div> -->
+    <input type="range" id="slider" class="slider" name="slider" min="2020" max="2022" value="2020" list="steplist">
+    <datalist id="steplist">
+        <option>2020</option>
+        <option>2021</option>
+        <option>2022</option>
+    </datalist>
 
-<!-- Create a div where the graph will take place -->
-<table>
-  <tr>
-      <td><div id="chart1_div" style="width: 300px; height: 300px;"></div></td>
-      <td><div id="chart2_div" style="width: 300px; height: 300px;"></div></td>
-  </tr>
+    
+    <h2>Overview</h2>
+    <!-- Create a div where the graph will take place -->
+    <table>
+      <tr>
+          <td><div id="chart1_div" style="width: 300px; height: 300px;"></div></td>
+          <td><div id="chart2_div" style="width: 300px; height: 300px;"></div></td>
+      </tr>
+</div>
 <script>
-    var parseDate = d3.timeParse("%Y-%m-%d");
-    var parseMonth = d3.timeParse("%Y-%m");
-    var month = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-/*------------ Line Chart --------------*/
-    // set the dimensions and margins of the graph
-    var margin = {top: 10, right: 30, bottom: 30, left: 60},
-        width = 460 - margin.left - margin.right,
-        height = 200 - margin.top - margin.bottom;
-    
-    // append the svg object to the body of the page
-    var svg = d3.select("#chart1_div")
-      .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-      .append("g")
-        .attr("transform",
-              "translate(" + margin.left + "," + margin.top + ")");
-    
-    d3.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv", function(data) {
+  /*----------- annotation ----------*/
+  const annotations = [
+  {
+    note: {
+      label: "Here is the annotation label",
+      title: "Annotation title"
+    },
+    x: 100,
+    y: 100,
+    dy: 100,
+    dx: 100
+  }
+]
+
+  // Add annotation to the chart
+  const makeAnnotations = d3.annotation()
+    .annotations(annotations)
+  d3.select("#chart1_div")
+    .append("g")
+    .call(makeAnnotations)
+
+  
+  /*--------- global variable -----------*/
+  var parseDate = d3.timeParse("%Y-%m-%d");
+  var parseMonth = d3.timeParse("%Y-%m");
+  var month = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  // set the dimensions and margins of the graph
+  var margin_s = {top:0, right:50, bottom:0, left:50},
+    width_s = 400 - margin_s.left - margin_s.right,
+    height_s = 100 - margin_s.top - margin_s.bottom;
+  /*------------- Slider -----------------*/
+  var slider = d3.select(".slider");
+  slider.on("change",function(d){
+    load(this.value)
+  })
+
+/*------------- END Slider --------------*/ 
+
+  /*------------ Line Chart --------------*/
+  var margin = {top: 10, right: 30, bottom: 30, left: 60},
+      width = 460 - margin.left - margin.right,
+      height = 200 - margin.top - margin.bottom;
+  // append the svg object to the body of the page
+  var svg = d3.select("#chart1_div")
+    .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform",
+            "translate(" + margin.left + "," + margin.top + ")");
+
+
+  /*------------ Second Line Chart --------------*/
+
+  var margin_1 = {top: 10, right: 30, bottom: 30, left: 200},
+  width_1 = 800, 
+  height_1 = 500;
+
+
+  var svg_1 = d3.select("#chart2_div")
+  .append("svg")
+    .attr("width", width_1 + margin_1.left + margin_1.right)
+    .attr("height", height_1 + margin_1.top + margin_1.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin_1.left + "," + margin_1.top + ")");
+      
+
+    // Add X axis --> it is a date format
+    var x_scale = d3.scaleTime()
+      .domain([new Date("2020-01-01"), new Date("2022-07-01")])
+      .range([0, width]);
+    svg.append("g")
+        .attr("transform", "translate(0," + height + ")")
+        .call(d3.axisBottom(x_scale)
+        .tickFormat(d3.timeFormat("%Y/%m")));
+
+    // Add Y axis
+    var y_scale = d3.scaleLinear()
+        .domain([0, 2000000000])
+        .range([ height, 0 ]);
+    svg.append("g")
+        .call(d3.axisLeft(y_scale)
+        .ticks(5)
+        .tickFormat(d3.format(".2s")));
+
+    // add Y Axis
+    var y_scale_1 = d3.scaleLinear()
+            .domain([0, 0.06])
+            .range([height_1, 0]);
+      svg_1.append("g")
+          .call(d3.axisLeft(y_scale_1)
+          .ticks(5)
+          .tickFormat(d3.format(".0%")));
+
+    function load(year){
+      // svg.selectAll("*").remove();
+      // svg_1.selectAll("*").remove();
+      console.log("wo call le"+year);
+      read(year);
+    }
+
+    function read(year) {
+      d3.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv", 
+      function(data) {
         data.forEach(function(d) {
-            d.date = parseDate(d.date);
+          var newD = parseDate(d.date);
+          d.date = newD;
         });
 
-        var groupedData = d3.nest()
+        groupedData = d3.nest()
             .key(function(d) {return d.date.getFullYear() + "-" + (d.date.getMonth() + 1); })
             .rollup(function(v) { return {
                 deaths: d3.sum(v, function(d) {return d.deaths}),
@@ -61,107 +205,65 @@
             }; })
             .entries(data);
 
-        // console.log(groupedData);
         groupedData.forEach(function(d) {
           d.key = parseMonth(d.key);
         });
 
-
-       // Add X axis --> it is a date format
-        var x_scale = d3.scaleTime()
-          .domain([new Date("2020-01"), new Date("2022-07")])
-          .range([0,width]);
-        svg.append("g")
-            .attr("transform", "translate(0," + height + ")")
-            .call(d3.axisBottom(x_scale)
-            .tickFormat(d3.timeFormat("%Y/%m")));
-
-        // Add Y axis
-        var y_scale = d3.scaleLinear()
-            .domain([0, 2000000000])
-            .range([ height, 0 ]);
-        svg.append("g")
-            .call(d3.axisLeft(y_scale)
-            .ticks(5)
-            .tickFormat(d3.format(".2s")));
-
-        var line = d3.line()
-        .x(function(d) { return x_scale(d.key); }) // set the x values for the line generator
-        .y(function(d) { return y_scale(d.value.total); }) // set the y values for the line generator 
-        .curve(d3.curveMonotoneX) // apply smoothing to the line
-
-        svg.append('path')
-        .datum(groupedData) // 10. Binds data to the line 
-        .attr("class", "line")
-        .attr("d", line); 
+        draw_cases(groupedData, 2020, year)
+        draw_cases(groupedData, 2021, year)
+        draw_cases(groupedData, 2022, year)
+        /*------------ END Line Chart --------------*/ 
+        //TODO here
+        //Draw chart2
+        draw_morality(groupedData, 2020, year)
+        draw_morality(groupedData, 2021, year)
+        draw_morality(groupedData, 2022, year)
+       
       /*------------ END Line Chart --------------*/
 
-      /*------------ Second Line Chart --------------*/
+      })
+    }
 
-      var margin_1 = {top: 10, right: 30, bottom: 30, left: 200},
-      width_1 = 800, 
-      height_1 = 500;
-      
-      var data2020 = groupedData.filter(function(d) { return d.key.getFullYear() == "2020" })
+    function draw_cases(groupedData,year,targetYear) {
+      var newGroupedData = groupedData.filter(function(d) { return d.key.getFullYear() == year; })
 
-      var svg_1 = d3.select("#chart2_div")
-      .append("svg")
-        .attr("width", width_1 + margin_1.left + margin_1.right)
-        .attr("height", height_1 + margin_1.top + margin_1.bottom)
-      .append("g")
-        .attr("transform",
-              "translate(" + margin_1.left + "," + margin_1.top + ")");
-      
+      console.log(newGroupedData);
+      var line = d3.line()
+      .x(function(d) { console.log(d.key); return x_scale(d.key); }) // set the x values for the line generator
+      .y(function(d) { return y_scale(d.value.total); }) // set the y values for the line generator 
+      .curve(d3.curveMonotoneX) // apply smoothing to the line
+
+      svg.append('path')
+      .datum(newGroupedData) // 10. Binds data to the line 
+      .attr("class", "line")
+      .style("stroke",function(){if(year == targetYear) return "red"; })
+      .attr("d", line); 
+    }
+
+    function draw_morality(groupedData,year,targetYear) {
+
+      var newData = groupedData.filter(function(d) { return d.key.getFullYear() == year; })
       // Add X axis
       var x_scale_1 = d3.scaleTime()
-          .domain([0, d3.max(data2020, function(d) { return d.key.getMonth(); })])
-          .range([0,width_1]);
+        .domain([0, 11])
+        .range([0,width_1]);
       svg_1.append("g")
           .attr("transform", "translate(0," + height_1 + ")")
           .call(d3.axisBottom(x_scale_1)
           .tickFormat(function(d, i) {  
                         return month[i];}));
 
-        // Add Y axis
-      var y_scale_1 = d3.scaleLinear()
-            .domain([0, 0.06])
-            .range([height_1, 0]);
-      svg_1.append("g")
-          .call(d3.axisLeft(y_scale_1)
-          .ticks(5)
-          .tickFormat(d3.format(".0%")));
-      
-      // line for 2020
-      var line_2020 = d3.line()
-        .x(function(d) { return x_scale_1(d.key.getMonth()); }) // set the x values for the line generator
-        .y(function(d) { return y_scale_1(d.value.deaths / d.value.total); }) // set the y values for the line generator 
-        .curve(d3.curveMonotoneX) // apply smoothing to the line
+      var line = d3.line()
+          .x(function(d) { return x_scale_1(d.key.getMonth()); }) // set the x values for the line generator
+          .y(function(d) { return y_scale_1(d.value.deaths / d.value.total); }) // set the y values for the line generator 
+          .curve(d3.curveMonotoneX) // apply smoothing to the line
 
-        svg_1.append('path')
-        .datum(data2020) // 10. Binds data to the line 
-        .attr("class", "line")
-        .attr("d", line_2020); 
-
-      // line for 2021
-      var line_2021 = d3.line()
-        .x(function(d) { return x_scale(d.key); }) // set the x values for the line generator
-        .y(function(d) { return y_scale(d.value.total); }) // set the y values for the line generator 
-        .curve(d3.curveMonotoneX) // apply smoothing to the line
-
-        svg_1.append('path')
-        .datum(groupedData) // 10. Binds data to the line 
-        .attr("class", "line")
-        .attr("d", line); 
-      
-      // // line for 2022
-      var line_2022 = d3.line()
-        .x(function(d) { return x_scale(d.key); }) // set the x values for the line generator
-        .y(function(d) { return y_scale(d.value.total); }) // set the y values for the line generator 
-        .curve(d3.curveMonotoneX) // apply smoothing to the line
-
-        svg_1.append('path')
-        .datum(groupedData) // 10. Binds data to the line 
-        .attr("class", "line")
-        .attr("d", line); 
-    })
+          svg_1.append('path')
+          .datum(newData) // 10. Binds data to the line 
+          .attr("class", "line")
+          .style("stroke",function(){if(year == targetYear) return "red"; })
+          .attr("d", line); 
+    }
+    load(2020);
+                   
     </script>

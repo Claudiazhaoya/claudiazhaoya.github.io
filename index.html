@@ -1,460 +1,868 @@
 <!DOCTYPE html>
-<meta charset="utf-8"/>
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1, shrink-to-fit=no"
-/>
-<!-- Load d3.js -->
-<script src="https://d3js.org/d3.v4.js"></script>
-
-<!-- Load d3-annotation -->
-<script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
-
-<style> /* set the CSS */
-
-  .line {
-    fill: none;
-    stroke: steelblue;
-    stroke-width: 2px;
-  }
-
-  .overlay {
-        fill: none;
-        pointer-events: all;
-    }
-
-    .focus circle {
-        fill: steelblue;
-    }
-
-    .focus text {
-        font-size: 14px;
-    }
-
-    .tooltip {
-        fill: white;
-        stroke: #000;
-    }
-
-    .tooltip-date, .tooltip-likes {
-        font-weight: bold;
-    }
-
-    input[type=range] {
-    width: 100%;
-    max-width: 30%;
-    margin-left: 0;
-    }
-
-    /* style datalist */
-    input[type=range] + datalist {
-        display: block;
-        margin-top: -4px;
-    }
-    input[type=range] + datalist option {
-        display: inline-block;
-        width: 200;
-        text-align: center;
-    }
-  </style>
-
-<div class="container">
-    <h1>
-        Covid-19 Trend in the United States
-    </h1>
-    <!-- <div id="slider"></div> -->
-    <input type="range" id="slider" class="slider" name="slider" min="2020" max="2022" value="2020" list="steplist">
-    <datalist id="steplist">
-      <option style="margin-left: 0px;">2020</option>
-      <option style="margin-left: 160px;">2021</option>
-      <option style="margin-left: 160px;">2022</option>
-    </datalist>
-    <!-- <h2>Overview</h2> -->
-    <!-- Create a div where the graph will take place -->
-    <table>
-      <tr>
-        <th>Overview</th>
-        <th>Morality Rate</th>
-      </tr>
-      <tr>
-          <td><div id="chart1_div" style="width: 500px; height: 300px;"></div></td>
-          <td><div id="chart2_div" style="width: 300px; height: 300px;"></div></td>
-      </tr>
-</div>
-<script>
-  
-  /*--------- global variable -----------*/
-  var parseDate = d3.timeParse("%Y-%m-%d");
-  var parseMonth = d3.timeParse("%Y-%m");
-  var month = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-  // set the dimensions and margins of the graph
-  var margin_s = {top:0, right:50, bottom:0, left:50},
-    width_s = 400 - margin_s.left - margin_s.right,
-    height_s = 100 - margin_s.top - margin_s.bottom;
-  /*------------- Slider -----------------*/
-  var slider = d3.select(".slider");
-  slider.on("change",function(d){
-    load(this.value)
-  })
-
-/*------------- END Slider --------------*/ 
-
-  /*------------ Line Chart --------------*/
-  var margin = {top: 10, right: 30, bottom: 30, left: 60},
-      width = 500 - margin.left - margin.right,
-      height = 200 - margin.top - margin.bottom;
-  // append the svg object to the body of the page
-  var svg = d3.select("#chart1_div")
-    .append("svg")
-      .attr("width", 700)
-      .attr("height", 500)
-    .append("g")
-      .attr("transform",
-            "translate(" + margin.left + "," + margin.top + ")");
-
-  /*------------ Second Line Chart --------------*/
-
-  var margin_1 = {top: 10, right: 30, bottom: 30, left: 200},
-  width_1 = 700, 
-  height_1 = 500;
-  var tooltip = { width: 100, height: 100, x: 10, y: -30 };
-
-
-  var svg_1 = d3.select("#chart2_div")
-  .append("svg")
-    .attr("width", width_1 + margin_1.left + margin_1.right)
-    .attr("height", height_1 + margin_1.top + margin_1.bottom)
-  .append("g")
-    .attr("transform",
-          "translate(" + margin_1.left + "," + margin_1.top + ")");
-      
-
-    // Add X axis --> it is a date format
-    var x_scale = d3.scaleTime()
-      .domain([new Date("2020-01-01"), new Date("2022-07-01")])
-      .range([0, width]);
-    svg.append("g")
-        .attr("transform", "translate(0," + height + ")")
-        .call(d3.axisBottom(x_scale)
-        .tickFormat(d3.timeFormat("%Y/%m")));
-
-    // Add Y axis
-    var y_scale = d3.scaleLinear()
-        .domain([0, 100000000])
-        .range([ height, 0 ]);
-    svg.append("g")
-        .call(d3.axisLeft(y_scale)
-        .ticks(5)
-        .tickFormat(d3.format(".2s")));
-
-    var x_scale_1 = d3.scaleTime()
-        .domain([0, 11])
-        .range([0,width_1]);
-    // add Y Axis
-    var y_scale_1 = d3.scaleLinear()
-            .domain([0, 0.1])
-            .range([height_1, 0]);
-      svg_1.append("g")
-          .call(d3.axisLeft(y_scale_1)
-          .ticks(5)
-          .tickFormat(d3.format(".0%")));
-
-    function load(year){
-      drawAllData();
-      read(year);
-    }
-
-    function drawAllData() {
-      d3.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us.csv", 
-      function(data) {
-        data.forEach(function(d) {
-          var newD = parseDate(d.date);
-          d.date = newD;
-        });
-       
-        var line = d3.line()
-        .x(function(d) {return x_scale(d.date); }) // set the x values for the line generator
-        .y(function(d) { return y_scale(d.cases); }) // set the y values for the line generator 
-        .curve(d3.curveMonotoneX) // apply smoothing to the line
-
-        svg.append('path')
-        .datum(data) // 10. Binds data to the line 
-        .attr("class", "line")
-        .attr("d", line); 
-
-      var bisectDate = d3.bisector(function(d) {return d.date; }).left;
-      var dateFormatter = d3.timeFormat("%m/%d/%y");
-      var formatValue = d3.format(",");
-
-      var focus = svg.append("g")
-        .attr("class", "focus")
-        .style("display", "none");
-
-      focus.append("circle")
-        .attr("r", 5);
-
-      focus.append("rect")
-        .attr("class", "tooltip")
-        .attr("width", 120)
-        .attr("height", 50)
-        .attr("x", 10)
-        .attr("y", -22)
-        .attr("rx", 4)
-        .attr("ry", 4);
-
-        focus.append("text")
-            .attr("class", "tooltip-date")
-            .attr("x", 18)
-            .attr("y", -2);
-
-        focus.append("text")
-            .attr("x", 18)
-            .attr("y", 18)
-            .text("Total:");
-
-        focus.append("text")
-            .attr("class", "tooltip-likes")
-            .attr("x", 60)
-            .attr("y", 18);
-
-        svg.append("rect")
-            .attr("class", "overlay")
-            .attr("width", width)
-            .attr("height", height)
-            .on("mouseover", function() { focus.style("display", null); })
-            .on("mouseout", function() { focus.style("display", "none"); })
-            .on("mousemove", mousemove);
- 
-        function mousemove() {
-            var x0 = x_scale.invert(d3.mouse(this)[0]),
-                i = bisectDate(data, x0, 1),
-                d0 = data[i - 1],
-                d1 = data[i];
-                d = x0 - d0.date > d1.date - x0 ? d1 : d0;
-     
-            focus.attr("transform", "translate(" + x_scale(d.date) + "," + y_scale(d.cases) + ")");
-            focus.select(".tooltip-date").text(dateFormatter(d.date));
-            focus.select(".tooltip-likes").text(formatValue(d.cases));
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claudia Sun - Personal Website</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-      });
-    }
 
-    function read(year) {
-      d3.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us.csv", 
-      function(data) {
-        data.forEach(function(d) {
-          var newD = parseDate(d.date);
-          d.date = newD;
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --accent-color: #f093fb;
+            --text-dark: #2d3748;
+            --text-light: #718096;
+            --bg-light: #f7fafc;
+            --white: #ffffff;
+            --gradient: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            --gradient-accent: linear-gradient(135deg, var(--accent-color), var(--primary-color));
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            scroll-behavior: smooth;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        nav.scrolled {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.5rem;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--gradient);
+            transition: width 0.3s ease;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .mobile-toggle {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+        }
+
+        .mobile-toggle span {
+            width: 25px;
+            height: 3px;
+            background: var(--text-dark);
+            margin: 3px 0;
+            transition: 0.3s;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            background: var(--gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><polygon fill="rgba(255,255,255,0.1)" points="0,0 1000,300 1000,1000 0,700"/></svg>');
+            background-size: cover;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 800px;
+            padding: 0 2rem;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            animation: fadeInUp 1s ease;
+        }
+
+        .hero .subtitle {
+            font-size: 1.5rem;
+            font-weight: 300;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            animation: fadeInUp 1s ease 0.2s both;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+            animation: fadeInUp 1s ease 0.4s both;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 1s ease 0.6s both;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 50px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--white);
+            color: var(--primary-color);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--white);
+            border: 2px solid var(--white);
+        }
+
+        .btn-outline:hover {
+            background: var(--white);
+            color: var(--primary-color);
+        }
+
+        /* Sections */
+        .section {
+            padding: 5rem 0;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 3rem;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* About Section */
+        .about-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .about-image {
+            text-align: center;
+        }
+
+        .profile-pic {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: var(--gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 4rem;
+            margin: 0 auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .about-text {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: var(--text-light);
+        }
+
+        .about-text h3 {
+            color: var(--text-dark);
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Skills Section */
+        .skills {
+            background: var(--bg-light);
+        }
+
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .skill-category {
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .skill-category:hover {
+            transform: translateY(-5px);
+        }
+
+        .skill-category h3 {
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .skill-category i {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+        }
+
+        .skill-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .skill-tag {
+            background: var(--gradient-accent);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        /* Projects Section */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .project-card {
+            background: var(--white);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .project-image {
+            height: 200px;
+            background: var(--gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 3rem;
+        }
+
+        .project-content {
+            padding: 1.5rem;
+        }
+
+        .project-content h3 {
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .project-content p {
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+
+        .project-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .project-links a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        /* Contact Section */
+        .contact {
+            background: var(--bg-light);
+        }
+
+        .contact-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: start;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--white);
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .contact-item i {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            width: 30px;
+        }
+
+        .contact-form {
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--text-dark);
+            color: white;
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .social-links a {
+            color: white;
+            font-size: 1.5rem;
+            transition: color 0.3s ease;
+        }
+
+        .social-links a:hover {
+            color: var(--accent-color);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .nav-links {
+                position: fixed;
+                top: 70px;
+                left: -100%;
+                width: 100%;
+                height: calc(100vh - 70px);
+                background: var(--white);
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-start;
+                padding-top: 2rem;
+                transition: left 0.3s ease;
+            }
+
+            .nav-links.active {
+                left: 0;
+            }
+
+            .mobile-toggle {
+                display: flex;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero .subtitle {
+                font-size: 1.2rem;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .about-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .contact-content {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-pic {
+                width: 200px;
+                height: 200px;
+                font-size: 3rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav-container {
+                padding: 0 1rem;
+            }
+
+            .section {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav id="navbar">
+        <div class="nav-container">
+            <div class="logo">Claudia Sun</div>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#skills">Skills</a></li>
+                <li><a href="#projects">Projects</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+            <div class="mobile-toggle" id="mobileToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <h1>Hello, I'm Claudia Sun</h1>
+            <p class="subtitle">Developer & Creative Problem Solver</p>
+            <p>I'm passionate about creating beautiful, functional, and user-friendly digital experiences. Welcome to my corner of the internet!</p>
+            <div class="cta-buttons">
+                <a href="#projects" class="btn btn-primary">
+                    <i class="fas fa-code"></i>
+                    View My Work
+                </a>
+                <a href="#contact" class="btn btn-outline">
+                    <i class="fas fa-envelope"></i>
+                    Get In Touch
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="section">
+        <h2 class="section-title">About Me</h2>
+        <div class="about-content">
+            <div class="about-image">
+                <div class="profile-pic">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+            <div class="about-text">
+                <h3>Nice to meet you!</h3>
+                <p>I'm a passionate developer with a love for creating innovative solutions and beautiful user experiences. My journey in technology started with curiosity and has evolved into a career dedicated to building meaningful digital products.</p>
+                <p>When I'm not coding, you can find me exploring new technologies, reading about design trends, or enjoying the great outdoors. I believe in continuous learning and am always excited to take on new challenges.</p>
+                <p>I'm currently focused on web development, but I'm always open to exploring new domains and technologies that can help solve real-world problems.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Skills Section -->
+    <section id="skills" class="section skills">
+        <h2 class="section-title">Skills & Expertise</h2>
+        <div class="skills-grid">
+            <div class="skill-category">
+                <h3><i class="fas fa-code"></i> Frontend Development</h3>
+                <div class="skill-tags">
+                    <span class="skill-tag">HTML5</span>
+                    <span class="skill-tag">CSS3</span>
+                    <span class="skill-tag">JavaScript</span>
+                    <span class="skill-tag">React</span>
+                    <span class="skill-tag">Vue.js</span>
+                    <span class="skill-tag">TypeScript</span>
+                </div>
+            </div>
+            <div class="skill-category">
+                <h3><i class="fas fa-server"></i> Backend Development</h3>
+                <div class="skill-tags">
+                    <span class="skill-tag">Node.js</span>
+                    <span class="skill-tag">Python</span>
+                    <span class="skill-tag">Express</span>
+                    <span class="skill-tag">Django</span>
+                    <span class="skill-tag">PostgreSQL</span>
+                    <span class="skill-tag">MongoDB</span>
+                </div>
+            </div>
+            <div class="skill-category">
+                <h3><i class="fas fa-tools"></i> Tools & Technologies</h3>
+                <div class="skill-tags">
+                    <span class="skill-tag">Git</span>
+                    <span class="skill-tag">Docker</span>
+                    <span class="skill-tag">AWS</span>
+                    <span class="skill-tag">Figma</span>
+                    <span class="skill-tag">VS Code</span>
+                    <span class="skill-tag">Webpack</span>
+                </div>
+            </div>
+            <div class="skill-category">
+                <h3><i class="fas fa-lightbulb"></i> Soft Skills</h3>
+                <div class="skill-tags">
+                    <span class="skill-tag">Problem Solving</span>
+                    <span class="skill-tag">Team Collaboration</span>
+                    <span class="skill-tag">Communication</span>
+                    <span class="skill-tag">Project Management</span>
+                    <span class="skill-tag">Critical Thinking</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Projects Section -->
+    <section id="projects" class="section">
+        <h2 class="section-title">Featured Projects</h2>
+        <div class="projects-grid">
+            <div class="project-card">
+                <div class="project-image">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <div class="project-content">
+                    <h3>E-Commerce Platform</h3>
+                    <p>A full-stack e-commerce solution with user authentication, payment integration, and admin dashboard. Built with React and Node.js.</p>
+                    <div class="project-links">
+                        <a href="#"><i class="fas fa-external-link-alt"></i> Live Demo</a>
+                        <a href="#"><i class="fab fa-github"></i> Source Code</a>
+                    </div>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-image">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="project-content">
+                    <h3>Data Visualization Dashboard</h3>
+                    <p>An interactive dashboard for visualizing complex data sets with real-time updates and customizable charts. Built with D3.js and Python.</p>
+                    <div class="project-links">
+                        <a href="#"><i class="fas fa-external-link-alt"></i> Live Demo</a>
+                        <a href="#"><i class="fab fa-github"></i> Source Code</a>
+                    </div>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-image">
+                    <i class="fas fa-mobile-alt"></i>
+                </div>
+                <div class="project-content">
+                    <h3>Mobile-First Web App</h3>
+                    <p>A progressive web application with offline capabilities and push notifications. Optimized for mobile performance and user experience.</p>
+                    <div class="project-links">
+                        <a href="#"><i class="fas fa-external-link-alt"></i> Live Demo</a>
+                        <a href="#"><i class="fab fa-github"></i> Source Code</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="section contact">
+        <h2 class="section-title">Get In Touch</h2>
+        <div class="contact-content">
+            <div class="contact-info">
+                <div class="contact-item">
+                    <i class="fas fa-envelope"></i>
+                    <div>
+                        <h4>Email</h4>
+                        <p>claudia@example.com</p>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <i class="fas fa-phone"></i>
+                    <div>
+                        <h4>Phone</h4>
+                        <p>+1 (555) 123-4567</p>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <div>
+                        <h4>Location</h4>
+                        <p>San Francisco, CA</p>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <i class="fab fa-linkedin"></i>
+                    <div>
+                        <h4>LinkedIn</h4>
+                        <p>linkedin.com/in/claudiasun</p>
+                    </div>
+                </div>
+            </div>
+            <form class="contact-form" id="contactForm">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject</label>
+                    <input type="text" id="subject" name="subject" required>
+                </div>
+                <div class="form-group">
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane"></i>
+                    Send Message
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="social-links">
+            <a href="#"><i class="fab fa-github"></i></a>
+            <a href="#"><i class="fab fa-linkedin"></i></a>
+            <a href="#"><i class="fab fa-twitter"></i></a>
+            <a href="#"><i class="fab fa-instagram"></i></a>
+        </div>
+        <p>&copy; 2025 Claudia Sun. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Mobile Navigation Toggle
+        const mobileToggle = document.getElementById('mobileToggle');
+        const navLinks = document.getElementById('navLinks');
+
+        mobileToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
         });
 
+        // Navbar scroll effect
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
 
-        draw_cases(data, 2020, year)
-        draw_cases(data, 2021, year)
-        draw_cases(data, 2022, year)
-        /*------------ END Line Chart --------------*/ 
-        //Draw chart2
-        draw_morality(data, 2020, year)
-        draw_morality(data, 2021, year)
-        draw_morality(data, 2022, year)
-       
-      /*------------ END Line Chart --------------*/
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                    // Close mobile menu if open
+                    navLinks.classList.remove('active');
+                }
+            });
+        });
+
+        // Contact form submission
+        const contactForm = document.getElementById('contactForm');
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Thank you for your message! I\'ll get back to you soon.');
+            contactForm.reset();
+        });
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe all sections for animations
+        document.querySelectorAll('.section, .project-card, .skill-category').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+
+        // Typing effect for hero subtitle (optional enhancement)
+        const subtitle = document.querySelector('.hero .subtitle');
+        const text = subtitle.textContent;
+        subtitle.textContent = '';
+        let i = 0;
         
-      })
-    }
-
-    function draw_cases(data,year,targetYear) {
-      var newData = data.filter(function(d) { return d.date.getFullYear() == year; })
-
-      var line = d3.line()
-      .x(function(d) { return x_scale(d.date); }) // set the x values for the line generator
-      .y(function(d) { return y_scale(d.cases); }) // set the y values for the line generator 
-      .curve(d3.curveMonotoneX) // apply smoothing to the line
-
-      svg.append('path')
-      .datum(newData) // 10. Binds data to the line 
-      .attr("class", "line")
-      .style("stroke",function(){if(year == targetYear) return "red"; })
-      .attr("d", line);
-    }
-
-    function draw_morality(groupedData,year,targetYear) {
-
-      var newData = groupedData.filter(function(d) { return d.date.getFullYear() == year; })
-      
-      var newGData = newData.filter(function(d) { return d.date.getDate() == 30; })
-    
-      svg_1.append("g")
-          .attr("transform", "translate(0," + height_1 + ")")
-          .call(d3.axisBottom(x_scale_1)
-          .tickFormat(function(d, i) {  
-                        return month[i];}));
-
-      var line = d3.line()
-          .x(function(d) { return x_scale_1(d.date.getMonth()); }) // set the x values for the line generator
-          .y(function(d) { return y_scale_1(d.deaths / d.cases); }) // set the y values for the line generator 
-          .curve(d3.curveMonotoneX) // apply smoothing to the line
-
-          svg_1.append('path')
-          .datum(newGData) // 10. Binds data to the line 
-          .attr("class", "line")
-          .style("stroke",function(){if(year == targetYear) return "red"; })
-          .attr("d", line); 
-    
-       drawFocus(groupedData, targetYear);
-    }
-
-    function drawFocus(groupedData, targetYear) {
-      var targetYData = groupedData.filter(function(d) { return d.date.getFullYear() == targetYear; })
-      
-      var newTData = targetYData.filter(function(d) { return d.date.getDate() == 30; })
-
-      var bisectDate = d3.bisector(function(d) {return d.date.getMonth(); }).left;
-      var dateFormatter = d3.timeFormat("%m/%d/%y");
-      var formatValue = d3.format(",%");
-
-      var focus = svg_1.append("g")
-        .attr("class", "focus")
-        .style("display", "none");
-
-      focus.append("circle")
-        .attr("r", 5);
-
-      focus.append("rect")
-        .attr("class", "tooltip")
-        .attr("width", 120)
-        .attr("height", 50)
-        .attr("x", 10)
-        .attr("y", -22)
-        .attr("rx", 4)
-        .attr("ry", 4);
-
-        focus.append("text")
-            .attr("class", "tooltip-date")
-            .attr("x", 18)
-            .attr("y", -2);
-
-        focus.append("text")
-            .attr("x", 18)
-            .attr("y", 18)
-            .text("Deaths:");
-
-        focus.append("text")
-            .attr("class", "tooltip-likes")
-            .attr("x", 60)
-            .attr("y", 18);
-
-        svg_1.append("rect")
-            .attr("class", "overlay")
-            .attr("width", width_1)
-            .attr("height", height_1)
-            .on("mouseover", function() { focus.style("display", null); })
-            .on("mouseout", function() { focus.style("display", "none"); })
-            .on("mousemove", mousemove);
-
-        function mousemove() {
-            var x0 = x_scale_1.invert(d3.mouse(this)[0]),
-                i = bisectDate(newTData, x0, 1),
-                d0 = newTData[i - 1],
-                d1 = newTData[i];
-                d = x0 - d0.date > d1.date - x0 ? d1 : d0;
-    
-            focus.attr("transform", "translate(" + x_scale_1(d.date.getMonth()) + "," + y_scale_1(d.deaths / d.cases) + ")");
-            focus.select(".tooltip-date").text(dateFormatter(d.date));
-            focus.select(".tooltip-likes").text(formatValue(d.deaths / d.cases));
+        function typeWriter() {
+            if (i < text.length) {
+                subtitle.textContent += text.charAt(i);
+                i++;
+                setTimeout(typeWriter, 100);
+            }
         }
-    }
-
-    /*----------- annotation ----------*/
-   // Features of the annotation
-   const annotations = [
-      {
-        note: {
-          label: "The World Health Organization activates its incident management system across the three levels of WHO (country office, regional office, and headquarters).",
-          title: "January 2, 2020",
-          wrap: 300
-        },
-        connector: {
-          end: "dot",
-          //can also add a curve type, e.g. curve: d3.curveStep
-          points: [[100, 14],[190, 52]]
-        },
-        x: 10,
-        y: 160,
-        dy: 50,
-        dx: 50
-      },
-      {
-        note: {
-          label: "U.S.COVID-19 death toll surpasses 500,000.",
-          title: "February 21, 2021",
-          wrap: 130
-        },
-        connector: {
-          end: "dot",
-          //can also add a curve type, e.g. curve: d3.curveStep
-          points: [[100, 14],[190, 52]]
-        },
-        x: 180,
-        y: 117,
-        dy: -50,
-        dx: -50
-      },
-    ]
-    const fontSize = d3.scaleLinear().range([10, 20]).clamp(true);
-    let ratio = window.innerWidth/5000;
-    // Add annotation to the chart
-    const makeAnnotations = d3.annotation()
-      .annotations(annotations)
-  
-    svg.append("g")
-      .style('font-size', fontSize(ratio))
-      .call(makeAnnotations);
-
-
-    /*---- annotation for chart2---------*/
-    const annotations_1 = [
-      {
-        note: {
-          label: "At a White House Press Briefing, Dr. Anthony Fauci and Dr. Deborah Brix announce that 100,000 to 240,000 deaths in the U.S. are expected even if social distancing and public health measures are perfectly enacted.",
-          title: "March 31, 2020",
-          wrap: 350
-        },
-        connector: {
-          end: "dot",
-          //can also add a curve type, e.g. curve: d3.curveStep
-          points: [[100, 14],[190, 52]]
-        },
-        x: 173,
-        y: 240,
-        dy: -50,
-        dx: 50
-      },
-      {
-        note: {
-          label: "U.S.COVID-19 death toll surpasses 500,000.",
-          title: "February 21, 2021",
-          wrap: 200
-        },
-        connector: {
-          end: "dot",
-          //can also add a curve type, e.g. curve: d3.curveStep
-          points: [[100, 14],[190, 52]]
-        },
-        x: 95,
-        y: 410,
-        dy: -50,
-        dx: -50
-      },
-    ]
-    // Add annotation to the chart
-    const makeAnnotations_1 = d3.annotation()
-      .annotations(annotations_1)
-  
-    svg_1.append("g")
-      .style('font-size', fontSize(ratio))
-      .call(makeAnnotations_1);
-    
-    load(2020);
-                   
+        
+        // Start typing effect after page load
+        window.addEventListener('load', () => {
+            setTimeout(typeWriter, 1000);
+        });
     </script>
+</body>
+</html>
